@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chatbot Lokal - Tanpa API Key</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { 900: '#0f172a', 800: '#1e293b', 700: '#334155' },
+                        accent: { 500: '#8b5cf6', 600: '#7c3aed' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        .chat-bubble-user { @apply bg-accent-600 text-white rounded-2xl rounded-br-sm; }
+        .chat-bubble-ai { @apply bg-dark-700 text-gray-200 rounded-2xl rounded-bl-sm; }
+        .animate-pulse-slow { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        .typing-dot { animation: typing 1.4s infinite ease-in-out both; }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+    </style>
+</head>
+<body class="bg-dark-900 text-gray-100 h-screen flex flex-col font-sans overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-dark-800 border-b border-dark-700 px-4 py-3 flex items-center justify-between shrink-0 z-10">
+        <div class="flex items-center gap-3">
+            <div class="relative">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-500 to-blue-500 flex items-center justify-center text-white font-bold text-lg shadow-lg">R</div>
+                <span class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-dark-800 rounded-full"></span>
+            </div>
+            <div>
+                <h1 class="text-lg font-semibold leading-tight">Rexi AI <span class="text-xs font-normal text-green-400">● Online</span></h1>
+                <p class="text-xs text-gray-400">Berjalan Lokal di Browser</p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <button id="ttsToggle" class="p-2 rounded-lg bg-dark-700 hover:bg-dark-600 transition" title="Toggle Suara AI">
+                <svg id="iconSpeakerOn" class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                <svg id="iconSpeakerOff" class="w-5 h-5 text-gray-500 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Chat Area -->
+    <main id="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth">
+        <!-- Pesan Awal AI -->
+        <div class="flex gap-3">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-accent-500 to-blue-500 flex items-center justify-center text-white text-xs font-bold shrink-0">AI</div>
+            <div class="chat-bubble-ai px-4 py-2 max-w-[80%] shadow-md">
+                <p class="text-sm">Halo! Saya Rexi AI. Saya berjalan sepenuhnya di browser Anda menggunakan Transformers.js. Tanyakan apa saja, atau gunakan tombol mikrofon untuk bicara.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Input Area -->
+    <footer class="bg-dark-800 border-t border-dark-700 p-3 shrink-0">
+        <div class="max-w-4xl mx-auto flex items-end gap-2">
+            <!-- Mic Button -->
+            <button id="micBtn" class="p-3 rounded-xl bg-dark-700 hover:bg-dark-600 text-gray-300 transition shrink-0 mb-0.5" title="Bicara">
+                <svg id="micIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                <svg id="micLoadingIcon" class="w-5 h-5 text-red-500 hidden animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+            </button>
+
+            <!-- Text Input -->
+            <div class="flex-1 relative">
+                <textarea id="userInput" rows="1" class="w-full bg-dark-700 border border-dark-600 rounded-xl py-3 px-4 pr-12 text-sm focus:outline-none focus:border-accent-500 transition resize-none text-gray-100 placeholder-gray-400" placeholder="Ketik pesan atau tekan mikrofon..."></textarea>
+            </div>
+
+            <!-- Send Button -->
+            <button id="sendBtn" class="p-3 rounded-xl bg-accent-600 hover:bg-accent-500 text-white transition shrink-0 mb-0.5 disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+            </button>
+        </div>
+        <p class="text-center text-[10px] text-gray-500 mt-2">Model AI berjalan lokal. Unduhan pertama mungkin memakan waktu.</p>
+    </footer>
+
+    <!-- Script Module untuk Transformers.js -->
+    <script type="module">
+        import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
+
+        // Konfigurasi: Gunakan model kecil yang cepat untuk chat
+        // Qwen2.5-0.5B-Instruct adalah model chat yang cukup baik untuk ukuran browser
+        // Jika terlalu berat, ganti dengan 'Xenova/distilgpt2' (tapi kurang pintar dalam instruksi)
+        const MODEL_ID = 'onnx-community/Qwen2.5-0.5B-Instruct';
+        const MAX_NEW_TOKENS = 150;
+
+        // State
+        let generator = null;
+        let isModelLoading = false;
+        let ttsEnabled = true;
+        let isGenerating = false;
+
+        // DOM Elements
+        const chatContainer = document.getElementById('chatContainer');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const micBtn = document.getElementById('micBtn');
+        const micIcon = document.getElementById('micIcon');
+        const micLoadingIcon = document.getElementById('micLoadingIcon');
+        const ttsToggle = document.getElementById('ttsToggle');
+        const iconSpeakerOn = document.getElementById('iconSpeakerOn');
+        const iconSpeakerOff = document.getElementById('iconSpeakerOff');
+
+        // --- 1. Inisialisasi Model AI ---
+        async function loadModel() {
+            if (generator || isModelLoading) return;
+            isModelLoading = true;
+            addMessage('ai', '⏳ Sedang memuat model AI (hanya sekali)... Mohon tunggu, ini mungkin memakan waktu beberapa saat tergantung koneksi Anda.');
+            
+            try {
+                // Menggunakan WebGPU jika tersedia, fallback ke WASM
+                const device = navigator.gpu ? 'webgpu' : 'wasm';
+                console.log(`Loading model on ${device}...`);
+
+                generator = await pipeline('text-generation', MODEL_ID, {
+                    device: device,
+                    dtype: 'q4', // Quantized 4-bit agar ringan
+                    progress_callback: (x) => {
+                        if (x.status === 'progress') {
+                            // Optional: update UI loading progress
+                            // console.log(`Loading: ${x.file} - ${Math.round(x.progress)}%`);
+                        }
+                    }
+                });
+
+                console.log("Model loaded successfully.");
+                // Hapus pesan loading
+                const lastMsg = chatContainer.lastElementChild;
+                if (lastMsg && lastMsg.textContent.includes('Sedang memuat model AI')) {
+                    lastMsg.remove();
+                }
+                addMessage('ai', '✅ Model siap! Silakan mulai bertanya.');
+            } catch (error) {
+                console.error("Gagal memuat model:", error);
+                addMessage('ai', '❌ Gagal memuat model. Pastikan Anda terhubung ke internet (untuk unduhan pertama) dan browser mendukung WebAssembly/WebGPU.');
+            } finally {
+                isModelLoading = false;
+            }
+        }
+
+        // --- 2. Fungsi Chat ---
+        async function sendMessage() {
+            const text = userInput.value.trim();
+            if (!text || isGenerating) return;
+
+            // Tampilkan pesan user
+            addMessage('user', text);
+            userInput.value = '';
+            userInput.style.height = 'auto'; // Reset height
+            scrollToBottom();
+
+            // Jika model belum siap, coba muat
+            if (!generator) {
+                await loadModel();
+                if (!generator) {
+                    addMessage('ai', 'Maaf, model belum siap. Coba refresh halaman.');
+                    return;
+                }
+            }
+
+            isGenerating = true;
+            sendBtn.disabled = true;
+
+            // Tampilkan typing indicator
+            const typingId = addTypingIndicator();
+
+            try {
+                // Format prompt untuk model instruct (Qwen format)
+                const messages = [
+                    { role: 'system', content: 'Anda adalah asisten AI yang membantu dan ramah. Jawab dengan singkat dan jelas dalam bahasa Indonesia.' },
+                    { role: 'user', content: text }
+                ];
+                
+                // Untuk model Qwen, kita bisa menggunakan chat template, tapi sederhananya:
+                // Kita gunakan text-generation langsung dengan prompt yang diformat
+                const prompt = `System: Anda adalah asisten AI yang ramah. Jawab dalam bahasa Indonesia.\nUser: ${text}\nAssistant:`;
+
+                const output = await generator(prompt, {
+                    max_new_tokens: MAX_NEW_TOKENS,
+                    temperature: 0.7,
+                    top_p: 0.9,
+                    do_sample: true,
+                    repetition_penalty: 1.1,
+                });
+
+                // Hapus typing indicator
+                removeTypingIndicator(typingId);
+
+                // Ekstrak teks jawaban (tergantung output model)
+                let reply = output[0].generated_text;
+                // Bersihkan prompt dari output jika model mengulanginya
+                if (reply.includes('Assistant:')) {
+                    reply = reply.split('Assistant:').pop().trim();
+                } else if (reply.startsWith(prompt)) {
+                    reply = reply.slice(prompt.length).trim();
+                }
+                
+                // Fallback jika kosong
+                if (!reply) reply = "Maaf, saya tidak bisa memproses itu.";
+
+                addMessage('ai', reply);
+                
+                // Baca jawaban jika TTS aktif
+                if (ttsEnabled) speakText(reply);
+
+            } catch (error) {
+                console.error("Error generating:", error);
+                removeTypingIndicator(typingId);
+                addMessage('ai', '❌ Terjadi kesalahan saat menghasilkan respons.');
+            } finally {
+                isGenerating = false;
+                sendBtn.disabled = false;
+                scrollToBottom();
+            }
+        }
+
+        // --- 3. Fungsi UI ---
+        function addMessage(sender, text) {
+            const div = document.createElement('div');
+            div.className = `flex gap-3 ${sender === 'user' ? 'flex-row-reverse' : ''}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = `w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${sender === 'user' ? 'bg-gray-600' : 'bg-gradient-to-br from-accent-500 to-blue-500'}`;
+            avatar.textContent = sender === 'user' ? 'U' : 'AI';
+            
+            const bubble = document.createElement('div');
+            bubble.className = `${sender === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'} px-4 py-2 max-w-[80%] shadow-md`;
+            
+            const p = document.createElement('p');
+            p.className = 'text-sm whitespace-pre-wrap break-words';
+            p.textContent = text;
+            
+            bubble.appendChild(p);
+            div.appendChild(avatar);
+            div.appendChild(bubble);
+            chatContainer.appendChild(div);
+            
+            scrollToBottom();
+            return div;
+        }
+
+        function addTypingIndicator() {
+            const id = 'typing-' + Date.now();
+            const div = document.createElement('div');
+            div.id = id;
+            div.className = 'flex gap-3';
+            
+            div.innerHTML = `
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-accent-500 to-blue-500 flex items-center justify-center text-white text-xs font-bold shrink-0">AI</div>
+                <div class="chat-bubble-ai px-4 py-3 max-w-[80%] shadow-md flex gap-1 items-center">
+                    <div class="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                </div>
+            `;
+            chatContainer.appendChild(div);
+            scrollToBottom();
+            return id;
+        }
+
+        function removeTypingIndicator(id) {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        }
+
+        function scrollToBottom() {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // --- 4. Web Speech API (Suara) ---
+        // Text-to-Speech
+        function speakText(text) {
+            if (!window.speechSynthesis) return;
+            window.speechSynthesis.cancel(); // Hentikan yang sedang berjalan
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'id-ID';
+            utterance.rate = 1.0;
+            // Pilih suara Indonesia jika tersedia
+            const voices = window.speechSynthesis.getVoices();
+            const idVoice = voices.find(v => v.lang.includes('id'));
+            if (idVoice) utterance.voice = idVoice;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // Speech Recognition (Input)
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'id-ID';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            recognition.onstart = () => {
+                micIcon.classList.add('hidden');
+                micLoadingIcon.classList.remove('hidden');
+                micLoadingIcon.classList.add('text-red-500');
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                userInput.value = transcript;
+                // Opsional: auto-send setelah suara dikenali
+                // sendMessage(); 
+            };
+
+            recognition.onend = () => {
+                micIcon.classList.remove('hidden');
+                micLoadingIcon.classList.add('hidden');
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech recognition error:", event.error);
+                micIcon.classList.remove('hidden');
+                micLoadingIcon.classList.add('hidden');
+                if (event.error === 'not-allowed') {
+                    alert('Izin mikrofon ditolak. Mohon izinkan akses mikrofon di pengaturan browser.');
+                }
+            };
+
+            micBtn.addEventListener('click', () => {
+                if (micLoadingIcon.classList.contains('hidden')) {
+                    try { recognition.start(); } catch(e) { console.log(e); }
+                } else {
+                    recognition.stop();
+                }
+            });
+        } else {
+            micBtn.addEventListener('click', () => {
+                alert('Browser Anda tidak mendukung Web Speech API. Gunakan Chrome atau Edge terbaru.');
+            });
+        }
+
+        // Toggle TTS
+        ttsToggle.addEventListener('click', () => {
+            ttsEnabled = !ttsEnabled;
+            if (ttsEnabled) {
+                iconSpeakerOn.classList.remove('hidden');
+                iconSpeakerOff.classList.add('hidden');
+            } else {
+                iconSpeakerOn.classList.add('hidden');
+                iconSpeakerOff.classList.remove('hidden');
+                window.speechSynthesis.cancel();
+            }
+        });
+
+        // --- 5. Event Listeners ---
+        sendBtn.addEventListener('click', sendMessage);
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        // Auto-resize textarea
+        userInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+
+        // Muat model saat halaman dimuat (atau saat interaksi pertama)
+        // Untuk menghemat bandwidth, kita muat saat user pertama kali mengirim pesan
+        // Tapi kita bisa pre-load jika diinginkan:
+        // window.addEventListener('load', () => {
+        //     setTimeout(loadModel, 2000); // Delay 2 detik agar UI stabil dulu
+        // });
+
+        console.log("Rexi AI initialized. Ready to load model on first message.");
+    </script>
+</body>
+</html>
